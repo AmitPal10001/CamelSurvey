@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Camel Survey</string>
+    <string name="appbar_scrolling_view_behavior">1</string>
+    <string name="are_you_sure_you_want_to">¿Desea abandonar esta página y regresar a la lista de encuestas?</string>
+    <string name="back_camel_survey">Volver a CamelSurvey</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+</resources>
