@@ -5,4 +5,14 @@
     <string name="back_camel_survey">Kembali ke CamelSurvey</string>
     <string name="yes">Ya</string>
     <string name="no">Tidak</string>
+    <string name="new_survey_available">Survei Baru Tersedia!</string>
+    <string name="complete_this_survey_and_boost_your_earnings">Selesaikan survei ini dan tingkatkan penghasilan Anda.</string>
+    <string name="you_ve_got_a_survey">Anda Mendapatkan Survei!</string>
+    <string name="take_a_new_survey_and_earn_cash">Ikuti survei baru dan dapatkan uang.</string>
+    <string name="dont_miss_your_chance_to_get_paid.">Jangan lewatkan kesempatan untuk dibayar.</string>
+    <string name="extra_cash">Uang Tambahan!</string>
+    <string name="a_new_survey_just_arrived_complete_it_to_earn">Survei baru baru saja tiba. Selesaikan untuk mendapatkan uang.</string>
+    <string name="new_survey_more_cash">Survei Baru, Lebih Banyak Uang!</string>
+    <string name="dont_miss_this_chance_to_earn_money.">Jangan lewatkan kesempatan ini untuk mendapatkan uang.</string>
 </resources>
+

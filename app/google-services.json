@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "126634195838",
+    "firebase_url": "https://pushcollect-5b60a.firebaseio.com",
+    "project_id": "pushcollect-5b60a",
+    "storage_bucket": "pushcollect-5b60a.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:126634195838:android:6c828219bca80aad9b912f",
+        "android_client_info": {
+          "package_name": "com.camelsurvey"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "126634195838-3lgqvr2ha38nh0arq08e1nadlagro7re.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQy5VdgXoFuluZi1QrIyQGz5Op4RO8Zhw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "126634195838-3lgqvr2ha38nh0arq08e1nadlagro7re.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

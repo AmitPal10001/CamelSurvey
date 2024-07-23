@@ -5,4 +5,13 @@
     <string name="back_camel_survey">Back to CamelSurvey</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <string name="new_survey_available">New Survey Available!</string>
+    <string name="complete_this_survey_and_boost_your_earnings">Complete this survey and boost your earnings.</string>
+    <string name="you_ve_got_a_survey">You\'ve Got a Survey!</string>
+    <string name="take_a_new_survey_and_earn_cash">Take a new survey and earn cash.</string>
+    <string name="dont_miss_your_chance_to_get_paid.">Don\'t miss your chance to get paid.</string>
+    <string name="extra_cash">Extra Cash!</string>
+    <string name="a_new_survey_just_arrived_complete_it_to_earn">A new survey just arrived. Complete it to earn.</string>
+    <string name="new_survey_more_cash">New Survey, More Cash!</string>
+    <string name="dont_miss_this_chance_to_earn_money.">Don\'t miss this chance to earn money.</string>
 </resources>

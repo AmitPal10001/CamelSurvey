@@ -1,5 +1,7 @@
 apply plugin: 'com.onesignal.androidsdk.onesignal-gradle-plugin'
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
+
 buildscript {
 
     repositories {
@@ -26,7 +28,7 @@ android {
     defaultConfig {
         multiDexEnabled true
         applicationId "com.camelsurvey"
-        minSdkVersion 19
+        minSdkVersion 21
         targetSdkVersion 34
         versionCode 6
         versionName "1.4"
@@ -57,6 +59,7 @@ dependencies {
     androidTestImplementation('androidx.test.espresso:espresso-core:3.1.0', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
+    implementation platform('com.google.firebase:firebase-bom:33.1.2')
     //noinspection GradleCompatible
     implementation 'androidx.appcompat:appcompat:1.0.0'
     //noinspection GradleCompatible
@@ -71,14 +74,15 @@ dependencies {
 //    implementation 'com.google.android.gms:play-services-ads:20.6.0'
     implementation("com.android.volley:volley:1.1.1")
     implementation 'com.google.code.gson:gson:2.8.5'
-
+// So, make sure you also include that repository in your project's build.gradle file.
+    implementation("com.google.android.play:app-update:2.1.0")
     def work_version = "2.9.0"
     // (Java only)
    // implementation "androidx.work:work-runtime:$work_version"
     // (Java only)
     implementation "androidx.work:work-runtime:$work_version"
 
-
+    implementation  'com.squareup.okhttp3:okhttp:4.9.3'
     // optional - GCMNetworkManager support
     implementation "androidx.work:work-gcm:$work_version"
 

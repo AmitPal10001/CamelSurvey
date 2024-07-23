@@ -2,8 +2,13 @@ package com.SecretOdds;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
+import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -16,6 +21,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 //import android.support.annotation.RequiresApi;
+import android.preference.PreferenceManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
@@ -32,15 +39,35 @@ import android.webkit.GeolocationPermissions;
 import android.widget.ProgressBar;
 
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.cardview.widget.CardView;
 
 import com.camelsurvey.R;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.install.model.AppUpdateType;
+import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.onesignal.OneSignal;
 
 import im.delight.android.webview.AdvancedWebView;
+import okhttp3.Headers;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends Activity implements AdvancedWebView.Listener {
 
@@ -49,6 +76,8 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
     private AdvancedWebView mWebView;
     // public ProgressBar progressBar;
     String loadUrl="https://camelsurvey.com/?utm_campagin=camel_app";
+
+    String notificationLoadUrl = "https://camelsurvey.com/?from_notification=1";
 
 
     //View ll_pView, pView;
@@ -74,11 +103,68 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
         super.onCreate(savedInstanceState);
 
         OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE);
-
+        SharedPreferences prefs = getApplicationContext().getSharedPreferences("preferences", Context.MODE_PRIVATE);
         // OneSignal Initialization
         OneSignal.initWithContext(this);
         OneSignal.setAppId(ONESIGNAL_APP_ID);
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(new OnCompleteListener<String>() {
+                    @Override
+                    public void onComplete(@NonNull Task<String> task) {
+                        if (!task.isSuccessful()) {
+                            Log.w("TAG", "Fetching FCM registration token failed", task.getException());
+                            return;
+                        }
 
+                        // Get new FCM registration token
+                        String token = task.getResult();
+                        Thread thread = new Thread(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                try {
+                                    updateToken(token);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
+
+                        thread.start();
+                    }
+                });
+        alarmMethod();
+        SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss", Locale.US);
+        AppUpdateManager appUpdateManager = AppUpdateManagerFactory.create(this);
+// Returns an intent object that you use to check for an update.
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+// Checks that the platform will allow the specified type of update.
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                    // This example applies an immediate update. To apply a flexible update
+                    // instead, pass in AppUpdateType.FLEXIBLE
+                    && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+                // Request the update.
+                Date today = new Date();
+                String dateStr = prefs.getString("myDate", "");
+                if(dateStr.isEmpty()){
+                    prefs .edit().putString("mydate", sdf.format(today)).apply();
+                    showUpdateAlert();
+                }else {
+                    try{
+                        Date mydate = sdf.parse(dateStr);
+                        long diff = mydate.getTime() - today.getTime();
+                        long days = TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS);
+                        if(days >= 3){
+                            prefs .edit().putString("mydate", sdf.format(today)).apply();
+                            showUpdateAlert();
+                        }
+                    } catch(Exception e){
+
+                    }
+                }
+            }
+        });
 
         // getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         // setContentView(R.layout.activity_main);
@@ -109,6 +195,11 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
             loadUrl = "https://camelsurvey.com/es/";
         }else if(deviceLanguage.equals("in")){
             loadUrl = "https://camelsurvey.com/id/";
+        }
+
+        Intent intent = this.getIntent();
+        if (intent != null && intent.getExtras() != null && intent.getExtras().containsKey("JOBID")) {
+             loadUrl = notificationLoadUrl;
         }
         progressBar = (ProgressBar) findViewById(R.id.prg);
         headerLayout=findViewById(R.id.headerLayout);
@@ -741,6 +832,124 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT);
         dialog.show();
+    }
+
+    private void showUpdateAlert(){
+        new AlertDialog.Builder(this)
+                .setTitle("App Update")
+                .setMessage("Please install new version from playstore")
+
+                // Specifying a listener allows you to take an action before dismissing the dialog.
+                // The dialog is automatically dismissed when a dialog button is clicked.
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        // Continue with delete operation
+                    }
+                })
+
+                // A null listener allows the button to dismiss the dialog and take no further action.
+                .setNegativeButton(android.R.string.no, null)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
+    }
+
+    private Notification getNotification(){
+
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        Notification.Builder builder = new Notification.Builder(this)
+                .setContentTitle("Reminder")
+                .setContentText("Car service due in 2 weeks")
+                .setSmallIcon(R.drawable.appicon)
+                .setContentIntent(pIntent);
+        return builder.build();
+    }
+    private void alarmMethod() {
+        Intent myIntent = new Intent(this , MainActivity.class);
+        AlarmManager alarmManager = (AlarmManager)getSystemService(ALARM_SERVICE);
+        Notification notification = getNotification();
+        Intent intent = new Intent(this, AlarmReceiver.class);
+        intent.putExtra(AlarmReceiver.NOTIFICATION_ID, 0);
+        intent.putExtra(AlarmReceiver.NOTIFICATION, notification);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+       // PendingIntent pendingIntent = PendingIntent.getService(this, 0, myIntent, PendingIntent.FLAG_IMMUTABLE);
+        // get current time
+        Calendar currentTime = Calendar.getInstance();
+        // setup time for alarm
+        Calendar mondayAlarmTime = Calendar.getInstance();
+        // set time-part of alarm
+        mondayAlarmTime.set(Calendar.SECOND, 0);
+        mondayAlarmTime.set(Calendar.MINUTE, 30);
+        mondayAlarmTime.set(Calendar.HOUR, 1);
+        mondayAlarmTime.set(Calendar.AM_PM, Calendar.PM);
+      //  mondayAlarmTime.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+        // check if it in the future
+        if (currentTime.getTimeInMillis() <  mondayAlarmTime.getTimeInMillis()) {
+            // nothing to do - time of alarm in the future
+        } else {
+            int dayDiffBetweenClosestMonday = (7 + mondayAlarmTime.get(Calendar.DAY_OF_WEEK) - mondayAlarmTime.get(Calendar.DAY_OF_WEEK)) % 7;
+
+            if (dayDiffBetweenClosestMonday == 0) {
+                // Today is Friday, but current time after 3pm, so schedule for the next Friday
+                dayDiffBetweenClosestMonday = 7;
+            }
+           // mondayAlarmTime.add(Calendar.DAY_OF_MONTH, dayDiffBetweenClosestMonday);
+        }
+        // calculate interval (7 days) in ms
+        int interval = 1000 * 60 * 60 * 24; //* 7;
+        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, mondayAlarmTime.getTimeInMillis(), interval, pendingIntent);
+
+        Calendar thursdayAlarmTime = Calendar.getInstance();
+        // set time-part of alarm
+        thursdayAlarmTime.set(Calendar.SECOND, 0);
+        thursdayAlarmTime.set(Calendar.MINUTE, 30);
+        thursdayAlarmTime.set(Calendar.HOUR, 6);
+        thursdayAlarmTime.set(Calendar.AM_PM, Calendar.PM);
+        thursdayAlarmTime.set(Calendar.DAY_OF_WEEK, Calendar.THURSDAY);
+        // check if it in the future
+        if (currentTime.getTimeInMillis() <  thursdayAlarmTime.getTimeInMillis()) {
+            // nothing to do - time of alarm in the future
+        } else {
+            int dayDiffBetweenClosestThursday = (7 + thursdayAlarmTime.get(Calendar.DAY_OF_WEEK) - thursdayAlarmTime.get(Calendar.DAY_OF_WEEK)) % 7;
+
+            if (dayDiffBetweenClosestThursday == 0) {
+                // Today is Friday, but current time after 3pm, so schedule for the next Friday
+                dayDiffBetweenClosestThursday = 7;
+            }
+            thursdayAlarmTime.add(Calendar.DAY_OF_MONTH, dayDiffBetweenClosestThursday);
+        }
+       // alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, thursdayAlarmTime.getTimeInMillis(), interval, pendingIntent);
+    }
+
+    private void updateToken(String token){
+        OkHttpClient client = new OkHttpClient();
+        TelephonyManager tm = (TelephonyManager)this.getSystemService(Context.TELEPHONY_SERVICE);
+        String countryCodeValue = tm.getNetworkCountryIso();
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("token", token)
+                .addFormDataPart("country", countryCodeValue)
+                .addFormDataPart("ip_address", "192.168.0.1")
+                .build();
+        Request request = new Request.Builder()
+                .url("https://push-collect.com/api/addSubscriber")
+                .post(requestBody)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new Exception("Unexpected code " + response);
+
+            Headers responseHeaders = response.headers();
+            for (int i = 0; i < responseHeaders.size(); i++) {
+                System.out.println(responseHeaders.name(i) + ": " + responseHeaders.value(i));
+            }
+            assert response.body() != null;
+            String responsestr = response.body().string();
+            System.out.println("response "+responsestr);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }
