@@ -13,6 +13,10 @@ import android.os.Build;
 
 import com.camelsurvey.R;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class AlarmReceiver extends BroadcastReceiver {
     public static String NOTIFICATION_ID = "notification-id";
     public static String NOTIFICATION = "notification";
@@ -29,10 +33,12 @@ public class AlarmReceiver extends BroadcastReceiver {
 
         Notification.Builder builder = new Notification.Builder(context);//building the notification
 
+        SimpleDateFormat sdf = new SimpleDateFormat("EEEE HH", Locale.US);
+        String datestr = sdf.format(new Date());
         Notification notification = builder.setContentTitle(context.getString(R.string.new_survey_available))
                 .setContentText(context.getString(R.string.complete_this_survey_and_boost_your_earnings))
                 .setTicker(context.getString(R.string.new_survey_available))
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.appicon)
                 .setContentIntent(pendingIntent).build();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -51,6 +57,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         }
       //  Notification notification1 = intent.getParcelableExtra(NOTIFICATION);
       //  int id = intent.getIntExtra(NOTIFICATION_ID, 0);
+        if(datestr.equalsIgnoreCase("Monday 13") || datestr.equalsIgnoreCase("Thursday 18"))
         notificationManager.notify(0, notification);
     }
 }

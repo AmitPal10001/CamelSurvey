@@ -1,5 +1,6 @@
 package com.SecretOdds;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlarmManager;
@@ -21,7 +22,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 //import android.support.annotation.RequiresApi;
+import android.os.Looper;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
@@ -37,11 +40,14 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.webkit.GeolocationPermissions;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.cardview.widget.CardView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.camelsurvey.R;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -66,7 +72,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends Activity implements AdvancedWebView.Listener {
@@ -74,10 +82,12 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
     private String lastUrl="";
     public static final long MIN_PERIODIC_INTERVAL_MILLIS = 15 * 60 * 1000L;
     private AdvancedWebView mWebView;
-    // public ProgressBar progressBar;
-    String loadUrl="https://camelsurvey.com/?utm_campagin=camel_app";
 
-    String notificationLoadUrl = "https://camelsurvey.com/?from_notification=1";
+    private String baseUrl = "https://camelsurvey.com/";
+    // public ProgressBar progressBar;
+    String loadUrl= baseUrl+"?utm_campagin=camel_app";
+
+    String notificationLoadUrl = baseUrl+"?from_notification=1";
 
 
     //View ll_pView, pView;
@@ -87,7 +97,6 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
     private static final int NOTIFICATION_PERMISSION_CODE = 123;
     private static final String ONESIGNAL_APP_ID = "bedb2017-ad3a-4670-69-3a76647455";
 
-    private static final String URL = "https://camelsurvey.com/";
     //private static final String URL = "https://com.camelsurvey/";
 
     //ProgressDialog pd;
@@ -102,11 +111,24 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+
+
+        // getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        // setContentView(R.layout.activity_main);
+        //pd = new ProgressDialog(this, R.style.pdtheme);
+//        pd.setProgressStyle(android.R.style.Widget_ProgressBar_Small);
+//        pd.setCancelable(false);
+//        pd.show();
+
+        setContentView(R.layout.activity_main);
+
+
         OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE);
         SharedPreferences prefs = getApplicationContext().getSharedPreferences("preferences", Context.MODE_PRIVATE);
-        // OneSignal Initialization
-        OneSignal.initWithContext(this);
-        OneSignal.setAppId(ONESIGNAL_APP_ID);
+        if (prefs.getBoolean("firstrun", true)) {
+            // Do first run stuff here then set 'firstrun' as false
+            // using the following line to edit/commit prefs
+        }
         FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(new OnCompleteListener<String>() {
                     @Override
@@ -123,7 +145,7 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                             @Override
                             public void run() {
                                 try {
-                                    updateToken(token);
+                                    updateToken(token,prefs);
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
@@ -134,6 +156,25 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                     }
                 });
         alarmMethod();
+        final Handler handler = new Handler(Looper.getMainLooper());
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                request_notification_api13_permission();
+            }
+        }, 4000);
+        // OneSignal Initialization
+        if(!isScheduleExactAlarmPermissionEnabled(this)){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SCHEDULE_EXACT_ALARM}, 1);
+        }else {
+            Intent intent = new Intent();
+            intent.setAction(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        }
+        OneSignal.initWithContext(this);
+        OneSignal.setAppId(ONESIGNAL_APP_ID);
+
         SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss", Locale.US);
         AppUpdateManager appUpdateManager = AppUpdateManagerFactory.create(this);
 // Returns an intent object that you use to check for an update.
@@ -165,17 +206,6 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                 }
             }
         });
-
-        // getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        // setContentView(R.layout.activity_main);
-        //pd = new ProgressDialog(this, R.style.pdtheme);
-//        pd.setProgressStyle(android.R.style.Widget_ProgressBar_Small);
-//        pd.setCancelable(false);
-//        pd.show();
-
-        setContentView(R.layout.activity_main);
-
-
         //OneSignal.startInit(this).init();
 //        OneSignal.startInit(this)
 //                .inFocusDisplaying(OneSignal.OSInFocusDisplayOption.Notification)
@@ -183,24 +213,39 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
 //                .init();
 
         String deviceLanguage = Locale.getDefault().getLanguage();
+
         if (deviceLanguage.equals("en")) {
-            loadUrl = "https://camelsurvey.com/?utm_campagin=camel_app";
+            loadUrl = baseUrl+"?utm_campaign=camel_app";
         } else if (deviceLanguage.equals("fr")) {
-            loadUrl = "https://camelsurvey.com/fr/";
+            loadUrl = baseUrl+"fr/?utm_campaign=camel_app";
         } else if (deviceLanguage.equals("it")) {
-            loadUrl = "https://camelsurvey.com/it/";
+            loadUrl = baseUrl+"it/?utm_campaign=camel_app";
         } else if (deviceLanguage.equals("pt")) {
-            loadUrl = "https://camelsurvey.com/pt/";
+            loadUrl = baseUrl+"pt/?utm_campaign=camel_app";
         } else if (deviceLanguage.equals("es")) {
-            loadUrl = "https://camelsurvey.com/es/";
-        }else if(deviceLanguage.equals("in")){
-            loadUrl = "https://camelsurvey.com/id/";
+            loadUrl = baseUrl+"es/?utm_campaign=camel_app";
+        } else if (deviceLanguage.equals("in")) {
+            loadUrl = baseUrl+"id/?utm_campaign=camel_app";
         }
 
+
         Intent intent = this.getIntent();
-        if (intent != null && intent.getExtras() != null && intent.getExtras().containsKey("JOBID")) {
+
+        if (intent != null && intent.getExtras() != null && (intent.getExtras().containsKey("JOBID")
+                || intent.getExtras().containsKey("google.delivered_priority")
+                || intent.getExtras().containsKey("google.sent_time")
+                || intent.getExtras().containsKey("google.ttl")
+                || intent.getExtras().containsKey("google.original_priority"))) {
+            Bundle bundle = intent.getExtras();
              loadUrl = notificationLoadUrl;
+            Set<String> keys = bundle.keySet();
+            Iterator<String> it = keys.iterator();
+//            while (it.hasNext()) {
+//                String key = it.next();
+//               Toast.makeText(this, "[" + key + "=" + bundle.get(key)+"]",Toast.LENGTH_LONG).show();
+//            }
         }
+        //Toast.makeText(this, loadUrl, Toast.LENGTH_LONG).show();
         progressBar = (ProgressBar) findViewById(R.id.prg);
         headerLayout=findViewById(R.id.headerLayout);
 
@@ -521,7 +566,7 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                 lastUrl=url;
                 String strArr[]=lastUrl.split("\\?");
                 Log.i("onPageStarted split", "Requesturl::" +strArr[0]);
-                if(url.startsWith("https://camelsurvey.com/")){
+                if(url.startsWith(baseUrl)){
                     headerLayout.setVisibility(View.GONE);
                 }else {
                     headerLayout.setVisibility(View.VISIBLE);
@@ -674,6 +719,28 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
         }
     }
 
+    public static boolean isScheduleExactAlarmPermissionEnabled(final Context context) {
+        return (ContextCompat.checkSelfPermission(context, Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED);
+    }
+    private void request_notification_api13_permission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (this.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_DENIED) {
+                Intent settingsIntent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
+                        .putExtra(Settings.EXTRA_CHANNEL_ID, "notification_channel");
+                startActivity(settingsIntent);
+            }else if (this.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.POST_NOTIFICATIONS}, 22);
+            }else{
+//                Intent settingsIntent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+//                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+//                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
+//                        .putExtra(Settings.EXTRA_CHANNEL_ID, "notification_channel");
+//                startActivity(settingsIntent);
+            }
+        }
+    }
     public boolean IsNetworkAvailable() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -797,7 +864,7 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
 
     @Override
     public void onBackPressed() {
-        if(!lastUrl.startsWith("https://camelsurvey.com/")){
+        if(!lastUrl.startsWith(baseUrl)){
            showExitDialog();
         }else {
             if (mWebView.canGoBack()) {
@@ -817,7 +884,7 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
             public void onClick(View view) {
                 dialog.dismiss();
                 headerLayout.setVisibility(View.GONE);
-                mWebView.loadUrl("https://camelsurvey.com/surveys/");
+                mWebView.loadUrl(baseUrl+"surveys/");
             }
         });
         dialog.findViewById(R.id.closeButton).setOnClickListener(new View.OnClickListener() {
@@ -852,6 +919,7 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .show();
     }
+
 
     private Notification getNotification(){
 
@@ -895,9 +963,11 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
                 dayDiffBetweenClosestMonday = 7;
             }
            // mondayAlarmTime.add(Calendar.DAY_OF_MONTH, dayDiffBetweenClosestMonday);
+            mondayAlarmTime.add(Calendar.DATE, 1); // add one day
         }
         // calculate interval (7 days) in ms
-        int interval = 1000 * 60 * 60 * 24; //* 7;
+       // int interval = 1000 * 60 * 60 * 24* 7;
+        int interval = 1000 * 60 * 60;
         alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, mondayAlarmTime.getTimeInMillis(), interval, pendingIntent);
 
         Calendar thursdayAlarmTime = Calendar.getInstance();
@@ -922,14 +992,34 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
        // alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, thursdayAlarmTime.getTimeInMillis(), interval, pendingIntent);
     }
 
-    private void updateToken(String token){
+    public static String getUserCountry(Context context) {
+        try {
+            final TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+            final String simCountry = tm.getSimCountryIso();
+            if (simCountry != null && simCountry.length() == 2) { // SIM country code is available
+                return simCountry.toLowerCase(Locale.US);
+            }
+            else if (tm.getPhoneType() != TelephonyManager.PHONE_TYPE_CDMA) { // device is not 3G (would be unreliable)
+                String networkCountry = tm.getNetworkCountryIso();
+                if (networkCountry != null && networkCountry.length() == 2) { // network country code is available
+                    return networkCountry.toLowerCase(Locale.US);
+                }
+            }
+        }
+        catch (Exception e) { }
+        return null;
+    }
+
+    private void updateToken(String token, SharedPreferences prefs){
+        System.out.println(token);
+
         OkHttpClient client = new OkHttpClient();
         TelephonyManager tm = (TelephonyManager)this.getSystemService(Context.TELEPHONY_SERVICE);
         String countryCodeValue = tm.getNetworkCountryIso();
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("token", token)
-                .addFormDataPart("country", countryCodeValue)
+                .addFormDataPart("country", getUserCountry(this))
                 .addFormDataPart("ip_address", "192.168.0.1")
                 .build();
         Request request = new Request.Builder()
@@ -947,12 +1037,15 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
             assert response.body() != null;
             String responsestr = response.body().string();
             System.out.println("response "+responsestr);
+            prefs.edit().putBoolean("firstrun", false).commit();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
 }
-
+//https://stackoverflow.com/questions/39194405/displaying-multiple-notifications-at-user-defined-times
+//https://stackoverflow.com/questions/34517520/how-to-give-notifications-on-android-on-specific-time
+//https://stackoverflow.com/questions/33821322/how-to-show-multiple-notifications-on-a-particular-day-in-different-times
 
 
